@@ -1,71 +1,94 @@
 import json
 from typing import Dict, Any, Optional
-import os
-from dotenv import load_dotenv
-import anthropic
+from .claude_client import ClaudeClient
+from .text_utils import prepare_proposal_text
 
 class ProposalAnalyzer:
     def __init__(self):
         """Initialize the proposal analyzer with Claude API setup"""
-        load_dotenv()
-        api_key = os.getenv('ANTHROPIC_API_KEY')
-        if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY not found in environment variables")
-        self.client = anthropic.Anthropic(api_key=api_key)
+        self.client = ClaudeClient.get_instance().client
         
         # Load the scoring system prompt
-        self.base_prompt = """# DAO Proposal Analysis System
+        self.base_prompt = """You are an expert at analyzing DAO governance proposals. Your task is to analyze the proposal and assign scores across 8 categories, ensuring the total equals 1.0.
 
-## Task
-Analyze the provided DAO governance proposal and assign proportional scores across eight standard categories. The sum of all scores must equal exactly 1.0 (or 0 if the proposal doesn't fit any category).
+Primary Purpose Analysis:
+1. What is the main problem or opportunity this proposal addresses?
+2. What is the core change or action being proposed?
+3. What are the expected outcomes and who benefits?
 
-## Categories
-Assess the proposal against these eight standard categories:
+Category Definitions and Examples:
 
-1. **Protocol Parameters** - Modifications to core operational variables of the protocol
-2. **Treasury Management** - Decisions regarding the DAO's financial resources
-3. **Tokenomics** - Changes related to the DAO's token system
-4. **Protocol Upgrades** - Technical improvements to the underlying system
-5. **Governance Process** - Changes to how the DAO's governance functions
-6. **Partnerships & Integrations** - Formal collaborations with external entities
-7. **Risk Management** - Measures addressing security and stability
-8. **Community Initiatives** - Programs focused on ecosystem growth
+1. Protocol Parameters (Primary Purpose: Adjusting core protocol settings)
+   - Interest rates, fees, rewards rates
+   - Risk parameters, collateral ratios
+   - Example: "Adjusting lending rates for better capital efficiency"
+   - Example: "Updating fee tiers for different pool types"
+   - Example: "Modifying rewards distribution rates"
 
-## Scoring Guidelines
-- Each proposal receives scores across these eight categories.
-- Scores must be proportional to the proposal's focus on each category.
-- The sum of all scores must equal exactly 1.0.
-- If a proposal has elements spanning multiple categories, divide the score proportionally.
-- If a proposal doesn't fit any category, all scores should be 0.
-- Use a precision of two decimal places (e.g., 0.25, not 0.253).
+2. Treasury Management (Primary Purpose: Managing protocol funds and resources)
+   - Liquidity incentives and mining programs
+   - Grant allocations and funding
+   - Example: "Launching $24M liquidity mining campaign"
+   - Example: "Allocating funds for ecosystem growth"
+   - Example: "Setting up treasury management framework"
 
-Please analyze the following proposal and provide scores in JSON format with a brief summary:
+3. Tokenomics (Primary Purpose: Changes to token economics or distribution)
+   - Token emission rates, vesting schedules
+   - Token utility changes
+   - Example: "Adjusting token emission schedule"
+   - Example: "Modifying token vesting terms"
+   - Example: "Changing token utility or governance rights"
 
-PROPOSAL TEXT:
+4. Protocol Upgrades (Primary Purpose: Technical improvements or new features)
+   - Smart contract upgrades
+   - New protocol features
+   - Example: "Deploying new protocol version"
+   - Example: "Adding new protocol functionality"
+   - Example: "Implementing technical improvements"
+
+5. Governance Process (Primary Purpose: Changes to governance mechanisms)
+   - Voting power changes
+   - Proposal requirements
+   - Example: "Modifying governance thresholds"
+   - Example: "Updating proposal requirements"
+   - Example: "Changing voting power calculation"
+
+6. Partnerships & Integrations (Primary Purpose: External collaborations)
+   - Strategic partnerships
+   - Protocol integrations
+   - Example: "Forming strategic partnership"
+   - Example: "Integrating with external protocol"
+   - Example: "Launching cross-protocol initiative"
+
+7. Risk Management (Primary Purpose: Managing protocol risks)
+   - Security measures
+   - Risk mitigation strategies
+   - Example: "Implementing new security measures"
+   - Example: "Adding risk management controls"
+   - Example: "Updating emergency procedures"
+
+8. Community Initiatives (Primary Purpose: Community engagement and growth)
+   - Community programs
+   - Educational initiatives
+   - Example: "Launching community program"
+   - Example: "Starting educational initiative"
+   - Example: "Creating community incentives"
+
+Scoring Guidelines:
+1. The primary purpose should receive the highest score (0.4-0.6)
+2. Secondary aspects should receive lower scores (0.1-0.3)
+3. Minor or tangential aspects should receive minimal scores (0.0-0.1)
+4. Total of all scores must equal 1.0
+
+Important Notes:
+- Focus on the primary purpose first, then secondary aspects
+- Implementation details should not overshadow the main goal
+- Consider both immediate and long-term impacts
+- Look for clear indicators of the proposal's main objective
+- Consider the proposal's title and introduction for primary purpose clues
+
+Proposal to analyze:
 """
-
-    def prepare_proposal_text(self, proposal_details: Dict[str, Any]) -> str:
-        """
-        Prepare the proposal text for analysis by combining relevant fields.
-        
-        Args:
-            proposal_details: Dictionary containing proposal details
-            
-        Returns:
-            str: Formatted proposal text
-        """
-        text_parts = [
-            f"Title: {proposal_details['title']}",
-            f"\nProposal Content:\n{proposal_details['content']}"
-        ]
-        
-        # Add first few comments if they provide context
-        if proposal_details.get('comments'):
-            text_parts.append("\nKey Comments:")
-            for comment in proposal_details['comments'][:3]:
-                text_parts.append(f"\n- {comment['content'][:500]}...")
-        
-        return "\n".join(text_parts)
 
     def analyze_proposal(self, proposal_details: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -77,8 +100,8 @@ PROPOSAL TEXT:
         Returns:
             dict: Analysis results with scores and summary
         """
-        # Prepare the proposal text
-        proposal_text = self.prepare_proposal_text(proposal_details)
+        # Prepare the proposal text using shared utility
+        proposal_text = prepare_proposal_text(proposal_details)
         
         # Create the full prompt
         full_prompt = f"{self.base_prompt}{proposal_text}\n\nPlease provide the analysis in the following JSON format:\n{{\n    \"protocol_parameters\": <score>,\n    \"treasury_management\": <score>,\n    \"tokenomics\": <score>,\n    \"protocol_upgrades\": <score>,\n    \"governance_process\": <score>,\n    \"partnerships_integrations\": <score>,\n    \"risk_management\": <score>,\n    \"community_initiatives\": <score>,\n    \"sum\": <total of all scores>,\n    \"primary_category\": \"<category with highest score>\",\n    \"summary\": \"<brief summary of the proposal>\"\n}}\n\nMake sure all scores are between 0 and 1, and the sum equals exactly 1.0."
@@ -105,10 +128,29 @@ PROPOSAL TEXT:
             json_end = response_text.rfind('}') + 1
             if json_start >= 0 and json_end > json_start:
                 result = json.loads(response_text[json_start:json_end])
+                
+                # Extract category scores
+                category_scores = {
+                    k: v for k, v in result.items() 
+                    if k not in ['sum', 'primary_category', 'summary']
+                }
+                
+                # Calculate total score
+                total_score = sum(category_scores.values())
+                
+                # Normalize scores if total is not 1.0
+                if abs(total_score - 1.0) > 0.0001:  # Allow for small floating point differences
+                    print(f"Warning: Category scores sum to {total_score:.2f}, normalizing to 1.0")
+                    for category in category_scores:
+                        category_scores[category] = category_scores[category] / total_score
+                    
+                    # Update result with normalized scores
+                    result.update(category_scores)
+                    result['sum'] = 1.0
+                
+                return result
             else:
                 raise ValueError("No valid JSON found in response")
-            
-            return result
             
         except Exception as e:
             print(f"Error analyzing proposal: {str(e)}")

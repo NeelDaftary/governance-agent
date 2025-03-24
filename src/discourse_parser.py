@@ -2,6 +2,9 @@ import requests
 from typing import Dict, Any, Optional, List
 from bs4 import BeautifulSoup
 import re
+from datetime import datetime
+import os
+import json
 
 class DiscourseParser:
     def __init__(self):
@@ -11,8 +14,34 @@ class DiscourseParser:
         self.session = requests.Session()
         self.session.headers.update({
             'Accept': 'application/json',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         })
+
+    def fetch_topic(self, base_url: str, topic_id: str) -> Dict[str, Any]:
+        """
+        Fetch a topic from a Discourse forum.
+        
+        Args:
+            base_url: The base URL of the Discourse forum
+            topic_id: The topic ID to fetch
+            
+        Returns:
+            dict: Topic data including title, content, and comments
+        """
+        # Clean the base URL
+        base_url = base_url.rstrip('/')
+        
+        # Construct the API URL
+        api_url = f"{base_url}/t/{topic_id}.json"
+        
+        try:
+            response = self.session.get(api_url)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching topic: {str(e)}")
+            return {}
 
     def clean_html_content(self, html_content: str) -> str:
         """
@@ -50,83 +79,62 @@ class DiscourseParser:
         text = re.sub(r' +', ' ', text)  # Remove multiple spaces
         return text.strip()
 
-    def fetch_topic(self, base_url: str, topic_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Fetch a specific topic (proposal) by its ID from any Discourse forum.
-        
-        Args:
-            base_url (str): The base URL of the Discourse forum
-            topic_id (str): The ID of the topic to fetch
-            
-        Returns:
-            dict: Topic data including title, content, and metadata
-            None: If the topic cannot be fetched
-        """
-        try:
-            # Clean the base URL
-            base_url = base_url.rstrip('/')
-            
-            # Try both .json and regular URL formats
-            urls_to_try = [
-                f"{base_url}/t/{topic_id}.json",
-                f"{base_url}/t/{topic_id}"
-            ]
-            
-            for url in urls_to_try:
-                try:
-                    response = self.session.get(url)
-                    response.raise_for_status()
-                    return response.json()
-                except requests.RequestException:
-                    continue
-            
-            raise requests.RequestException(f"Failed to fetch topic {topic_id} from {base_url}")
-            
-        except requests.RequestException as e:
-            print(f"Error fetching topic {topic_id}: {str(e)}")
-            return None
-
     def extract_proposal_details(self, topic_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Extract relevant proposal details from the topic data.
+        Extract relevant details from a topic.
         
         Args:
-            topic_data (dict): Raw topic data from the Discourse API
+            topic_data: Raw topic data from the API
             
         Returns:
-            dict: Extracted proposal details including title, content, and comments
+            dict: Extracted proposal details
         """
         if not topic_data:
             return {}
-        
-        # Extract posts from the post stream
-        posts = topic_data.get('post_stream', {}).get('posts', [])
-        
-        # First post is the proposal content, rest are comments
-        comments = []
-        if len(posts) > 1:  # If there are comments
-            for post in posts[1:]:  # Skip the first post (proposal content)
-                comments.append({
-                    'username': post.get('username', ''),
-                    'created_at': post.get('created_at', ''),
-                    'content': self.clean_html_content(post.get('cooked', '')),
-                    'post_number': post.get('post_number', 0),
-                    'like_count': post.get('like_count', 0),
-                    'reply_count': len(post.get('replies', [])),
-                    'score': post.get('score', 0),
-                    'reactions': post.get('reactions', []),
-                    'is_solution': post.get('accepted_answer', False)
-                })
-        
-        return {
+            
+        # Extract basic details
+        details = {
             'title': topic_data.get('title', ''),
-            'content': self.clean_html_content(posts[0].get('cooked', '') if posts else ''),
             'created_at': topic_data.get('created_at', ''),
-            'post_count': topic_data.get('posts_count', 0),
-            'participant_count': topic_data.get('participant_count', 0),
-            'like_count': topic_data.get('like_count', 0),
-            'views': topic_data.get('views', 0),
-            'category': topic_data.get('category_id', None),
-            'tags': topic_data.get('tags', []),
-            'comments': comments
-        } 
+            'content': '',
+            'comments': []
+        }
+        
+        # Extract the main post content
+        if 'post_stream' in topic_data and 'posts' in topic_data['post_stream']:
+            posts = topic_data['post_stream']['posts']
+            if posts:
+                # Get the first post (main proposal)
+                main_post = posts[0]
+                details['content'] = main_post.get('cooked', '')
+                
+                # Get comments (excluding the main post)
+                for post in posts[1:]:
+                    details['comments'].append({
+                        'content': post.get('cooked', ''),
+                        'created_at': post.get('created_at', '')
+                    })
+                    
+        return details
+        
+    def parse_proposal(self, url: str) -> Dict[str, Any]:
+        """
+        Parse a proposal from its URL.
+        
+        Args:
+            url: The full URL of the proposal
+            
+        Returns:
+            dict: Parsed proposal details
+        """
+        # Extract base URL and topic ID from the URL
+        match = re.match(r'(https?://[^/]+)/t/([^/]+)/(\d+)', url)
+        if not match:
+            raise ValueError(f"Invalid proposal URL format: {url}")
+            
+        base_url, _, topic_id = match.groups()
+        
+        # Fetch and parse the proposal
+        topic_data = self.fetch_topic(base_url, topic_id)
+        
+        return self.extract_proposal_details(topic_data) 

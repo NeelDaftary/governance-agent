@@ -71,8 +71,8 @@ def test_proposal_analysis(url: str, analyze_sentiment: bool = True) -> None:
 
 def main():
     """Main function to test proposal analysis"""
-    # Test URL - Aave proposal
-    test_url = "https://governance.aave.com/t/temp-check-building-horizon-s-rwa-product-an-aave-licensed-instance-for-institutions/21384"
+    # Test URL - Compound proposal
+    test_url = "https://www.comp.xyz/t/compound-morpho-polygon-collaboration/6306"
     test_proposal_analysis(test_url)
 
 if __name__ == "__main__":

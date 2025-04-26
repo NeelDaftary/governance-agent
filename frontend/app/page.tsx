@@ -1,19 +1,41 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import type { FormEvent } from 'react';
 
 interface AnalysisResult {
-  protocol_parameters: number;
-  treasury_management: number;
-  tokenomics: number;
-  protocol_upgrades: number;
-  governance_process: number;
-  partnerships_integrations: number;
-  risk_management: number;
-  community_initiatives: number;
-  primary_category: string;
-  summary: string;
-  sentiment_analysis?: {
+  proposal: {
+    url: string;
+    title: string;
+    created_at: string;
+  };
+  analysis: {
+    category_weights: {
+      protocol_parameters: number;
+      treasury_management: number;
+      tokenomics: number;
+      protocol_upgrades: number;
+      governance_process: number;
+      partnerships_integrations: number;
+      risk_management: number;
+      community_initiatives: number;
+    };
+    primary_category: string;
+    summary: string;
+    detailed_evaluation: {
+      score: number;
+      reasoning: string;
+      key_findings: Array<{
+        aspect: string;
+        analysis: string;
+        impact: string;
+      }>;
+      information_gaps: string[];
+      recommendations: string[];
+      category: string;
+    };
+  };
+  comment_analysis?: {
     sentiment_score: number;
     summary: string;
     key_points: string[];
@@ -196,10 +218,24 @@ export default function Home() {
                   <h3 className={`text-lg font-semibold mb-2 ${
                     darkMode ? 'text-gray-200' : 'text-gray-700'
                   }`}>
+                    Proposal Details
+                  </h3>
+                  <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                    <strong>Title:</strong> {result.proposal.title}
+                  </p>
+                  <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                    <strong>URL:</strong> {result.proposal.url}
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className={`text-lg font-semibold mb-2 ${
+                    darkMode ? 'text-gray-200' : 'text-gray-700'
+                  }`}>
                     Primary Category
                   </h3>
                   <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                    {result.primary_category}
+                    {result.analysis.primary_category}
                   </p>
                 </div>
 
@@ -210,7 +246,7 @@ export default function Home() {
                     Summary
                   </h3>
                   <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                    {result.summary}
+                    {result.analysis.summary}
                   </p>
                 </div>
 
@@ -218,15 +254,11 @@ export default function Home() {
                   <h3 className={`text-lg font-semibold mb-4 ${
                     darkMode ? 'text-gray-200' : 'text-gray-700'
                   }`}>
-                    Category Scores
+                    Category Weights
                   </h3>
                   <div className="grid gap-3">
-                    {Object.entries(result)
-                      .filter(([key, value]) => 
-                        typeof value === 'number' && 
-                        !['sum'].includes(key)
-                      )
-                      .map(([category, score]) => (
+                    {Object.entries(result.analysis.category_weights)
+                      .map(([category, weight]) => (
                         <div key={category} className={`flex justify-between items-center p-3 rounded-lg ${
                           darkMode ? 'bg-gray-800' : 'bg-gray-50'
                         }`}>
@@ -238,16 +270,93 @@ export default function Home() {
                           <span className={`font-mono ${
                             darkMode ? 'text-blue-400' : 'text-blue-600'
                           }`}>
-                            {(score as number).toFixed(2)}
+                            {weight.toFixed(2)}
                           </span>
                         </div>
                       ))}
                   </div>
                 </div>
+
+                <div>
+                  <h3 className={`text-lg font-semibold mb-4 ${
+                    darkMode ? 'text-gray-200' : 'text-gray-700'
+                  }`}>
+                    Detailed Evaluation
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className={`text-md font-medium mb-2 ${
+                        darkMode ? 'text-gray-200' : 'text-gray-700'
+                      }`}>
+                        Score: {result.analysis.detailed_evaluation.score.toFixed(2)}
+                      </h4>
+                      <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                        {result.analysis.detailed_evaluation.reasoning}
+                      </p>
+                    </div>
+
+                    <div>
+                      <h4 className={`text-md font-medium mb-2 ${
+                        darkMode ? 'text-gray-200' : 'text-gray-700'
+                      }`}>
+                        Key Findings
+                      </h4>
+                      <div className="space-y-3">
+                        {result.analysis.detailed_evaluation.key_findings.map((finding, index) => (
+                          <div key={index} className={`p-3 rounded-lg ${
+                            darkMode ? 'bg-gray-800' : 'bg-gray-50'
+                          }`}>
+                            <p className={`font-medium ${
+                              darkMode ? 'text-gray-200' : 'text-gray-700'
+                            }`}>
+                              {finding.aspect}
+                            </p>
+                            <p className={`mt-1 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                              {finding.analysis}
+                            </p>
+                            <p className={`mt-1 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                              <strong>Impact:</strong> {finding.impact}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className={`text-md font-medium mb-2 ${
+                        darkMode ? 'text-gray-200' : 'text-gray-700'
+                      }`}>
+                        Information Gaps
+                      </h4>
+                      <ul className={`list-disc pl-5 space-y-1 ${
+                        darkMode ? 'text-gray-300' : 'text-gray-600'
+                      }`}>
+                        {result.analysis.detailed_evaluation.information_gaps.map((gap, index) => (
+                          <li key={index}>{gap}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div>
+                      <h4 className={`text-md font-medium mb-2 ${
+                        darkMode ? 'text-gray-200' : 'text-gray-700'
+                      }`}>
+                        Recommendations
+                      </h4>
+                      <ul className={`list-disc pl-5 space-y-1 ${
+                        darkMode ? 'text-gray-300' : 'text-gray-600'
+                      }`}>
+                        {result.analysis.detailed_evaluation.recommendations.map((rec, index) => (
+                          <li key={index}>{rec}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {result.sentiment_analysis && (
+            {result.comment_analysis && (
               <div className={`rounded-xl shadow-lg p-6 ${
                 darkMode 
                   ? 'bg-dark-card border border-dark-border' 
@@ -256,7 +365,7 @@ export default function Home() {
                 <h2 className={`text-2xl font-bold mb-6 ${
                   darkMode ? 'text-white' : 'text-gray-900'
                 }`}>
-                  Sentiment Analysis
+                  Comment Analysis
                 </h2>
                 
                 <div className="space-y-6">
@@ -264,18 +373,30 @@ export default function Home() {
                     <h3 className={`text-lg font-semibold mb-2 ${
                       darkMode ? 'text-gray-200' : 'text-gray-700'
                     }`}>
-                      Sentiment Score
+                      Overall Sentiment
                     </h3>
-                    <p className={`text-2xl font-mono ${
-                      (() => {
-                        const value = result.sentiment_analysis?.sentiment_score || 0;
-                        if (value > 0.6) return darkMode ? 'text-green-400' : 'text-green-600';
-                        if (value < 0.4) return darkMode ? 'text-red-400' : 'text-red-600';
-                        return darkMode ? 'text-yellow-400' : 'text-yellow-600';
-                      })()
-                    }`}>
-                      {result.sentiment_analysis.sentiment_score.toFixed(2)}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      <div className={`w-full h-2 rounded-full ${
+                        darkMode ? 'bg-gray-700' : 'bg-gray-200'
+                      }`}>
+                        <div 
+                          className={`h-full rounded-full ${
+                            result.comment_analysis.sentiment_score >= 0 
+                              ? 'bg-green-500' 
+                              : 'bg-red-500'
+                          }`}
+                          style={{ 
+                            width: `${Math.abs(result.comment_analysis.sentiment_score) * 100}%`,
+                            marginLeft: result.comment_analysis.sentiment_score < 0 ? 'auto' : '0'
+                          }}
+                        />
+                      </div>
+                      <span className={`text-sm ${
+                        darkMode ? 'text-gray-300' : 'text-gray-600'
+                      }`}>
+                        {result.comment_analysis.sentiment_score.toFixed(2)}
+                      </span>
+                    </div>
                   </div>
 
                   <div>
@@ -285,53 +406,51 @@ export default function Home() {
                       Summary
                     </h3>
                     <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                      {result.sentiment_analysis.summary}
+                      {result.comment_analysis.summary}
                     </p>
                   </div>
 
-                  <div className="grid gap-6 md:grid-cols-2">
-                    <div>
-                      <h3 className={`text-lg font-semibold mb-3 ${
-                        darkMode ? 'text-gray-200' : 'text-gray-700'
-                      }`}>
-                        Key Points
-                      </h3>
-                      <ul className={`list-disc pl-5 space-y-2 ${
-                        darkMode ? 'text-gray-300' : 'text-gray-600'
-                      }`}>
-                        {result.sentiment_analysis.key_points.map((point, i) => (
-                          <li key={i}>{point}</li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div>
-                      <h3 className={`text-lg font-semibold mb-3 ${
-                        darkMode ? 'text-gray-200' : 'text-gray-700'
-                      }`}>
-                        Concerns
-                      </h3>
-                      <ul className={`list-disc pl-5 space-y-2 ${
-                        darkMode ? 'text-gray-300' : 'text-gray-600'
-                      }`}>
-                        {result.sentiment_analysis.concerns.map((concern, i) => (
-                          <li key={i}>{concern}</li>
-                        ))}
-                      </ul>
-                    </div>
+                  <div>
+                    <h3 className={`text-lg font-semibold mb-2 ${
+                      darkMode ? 'text-gray-200' : 'text-gray-700'
+                    }`}>
+                      Key Points
+                    </h3>
+                    <ul className={`list-disc list-inside space-y-1 ${
+                      darkMode ? 'text-gray-300' : 'text-gray-600'
+                    }`}>
+                      {result.comment_analysis.key_points.map((point, index) => (
+                        <li key={index}>{point}</li>
+                      ))}
+                    </ul>
                   </div>
 
                   <div>
-                    <h3 className={`text-lg font-semibold mb-3 ${
+                    <h3 className={`text-lg font-semibold mb-2 ${
+                      darkMode ? 'text-gray-200' : 'text-gray-700'
+                    }`}>
+                      Concerns
+                    </h3>
+                    <ul className={`list-disc list-inside space-y-1 ${
+                      darkMode ? 'text-gray-300' : 'text-gray-600'
+                    }`}>
+                      {result.comment_analysis.concerns.map((concern, index) => (
+                        <li key={index}>{concern}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h3 className={`text-lg font-semibold mb-2 ${
                       darkMode ? 'text-gray-200' : 'text-gray-700'
                     }`}>
                       Suggestions
                     </h3>
-                    <ul className={`list-disc pl-5 space-y-2 ${
+                    <ul className={`list-disc list-inside space-y-1 ${
                       darkMode ? 'text-gray-300' : 'text-gray-600'
                     }`}>
-                      {result.sentiment_analysis.suggestions.map((suggestion, i) => (
-                        <li key={i}>{suggestion}</li>
+                      {result.comment_analysis.suggestions.map((suggestion, index) => (
+                        <li key={index}>{suggestion}</li>
                       ))}
                     </ul>
                   </div>

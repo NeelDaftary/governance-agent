@@ -9,83 +9,26 @@ class ProposalAnalyzer:
         self.client = ClaudeClient.get_instance().client
         
         # Load the scoring system prompt
-        self.base_prompt = """You are an expert at analyzing DAO governance proposals. Your task is to analyze the proposal and assign scores across 8 categories, ensuring the total equals 1.0.
+        self.base_prompt = """You are an expert DAO governance delegate that has been tasked with analyzing a proposal. Analyze this proposal and:
+1. Provide a insightful summary addressing: main problem/opportunity, changes suggested
+2. Explain the potential outcomes if the proposal passes or fails
+3. Assign weights to 8 categories (total must equal 1.0)
 
-Primary Purpose Analysis:
-1. What is the main problem or opportunity this proposal addresses?
-2. What is the core change or action being proposed?
-3. What are the expected outcomes and who benefits?
-
-Category Definitions and Examples:
-
-1. Protocol Parameters (Primary Purpose: Adjusting core protocol settings)
-   - Interest rates, fees, rewards rates
-   - Risk parameters, collateral ratios
-   - Example: "Adjusting lending rates for better capital efficiency"
-   - Example: "Updating fee tiers for different pool types"
-   - Example: "Modifying rewards distribution rates"
-
-2. Treasury Management (Primary Purpose: Managing protocol funds and resources)
-   - Liquidity incentives and mining programs
-   - Grant allocations and funding
-   - Example: "Launching $24M liquidity mining campaign"
-   - Example: "Allocating funds for ecosystem growth"
-   - Example: "Setting up treasury management framework"
-
-3. Tokenomics (Primary Purpose: Changes to token economics or distribution)
-   - Token emission rates, vesting schedules
-   - Token utility changes
-   - Example: "Adjusting token emission schedule"
-   - Example: "Modifying token vesting terms"
-   - Example: "Changing token utility or governance rights"
-
-4. Protocol Upgrades (Primary Purpose: Technical improvements or new features)
-   - Smart contract upgrades
-   - New protocol features
-   - Example: "Deploying new protocol version"
-   - Example: "Adding new protocol functionality"
-   - Example: "Implementing technical improvements"
-
-5. Governance Process (Primary Purpose: Changes to governance mechanisms)
-   - Voting power changes
-   - Proposal requirements
-   - Example: "Modifying governance thresholds"
-   - Example: "Updating proposal requirements"
-   - Example: "Changing voting power calculation"
-
-6. Partnerships & Integrations (Primary Purpose: External collaborations)
-   - Strategic partnerships
-   - Protocol integrations
-   - Example: "Forming strategic partnership"
-   - Example: "Integrating with external protocol"
-   - Example: "Launching cross-protocol initiative"
-
-7. Risk Management (Primary Purpose: Managing protocol risks)
-   - Security measures
-   - Risk mitigation strategies
-   - Example: "Implementing new security measures"
-   - Example: "Adding risk management controls"
-   - Example: "Updating emergency procedures"
-
-8. Community Initiatives (Primary Purpose: Community engagement and growth)
-   - Community programs
-   - Educational initiatives
-   - Example: "Launching community program"
-   - Example: "Starting educational initiative"
-   - Example: "Creating community incentives"
+Categories:
+1. Protocol Parameters: Specific numerical adjustments to existing protocol variables (interest rates, transaction fees, voting thresholds, time locks) without changing core functionality.
+2. Treasury Management: Explicit movement, allocation or utilization of protocol-owned funds for defined purposes including investments, grants, or operational expenses.
+3. Tokenomics: Changes affecting token supply, distribution, inflation/deflation mechanisms, vesting schedules, or fundamental token utility/governance rights.
+4. Protocol Upgrades: Implementation of new technical features, smart contract deployments, security improvements, or modifications to the underlying protocol logic.
+5. Governance Process: Alterations to decision-making mechanisms, voting systems, proposal frameworks, or the roles/powers of governance participants.
+6. Partnerships & Integrations: Formal collaborations with external protocols, projects, or entities that create technical connections or business relationships.
+7. Risk Management: Measures specifically designed to address protocol vulnerabilities, market exposures, or operational threats through defined safeguards.
+8. Community Initiatives: Programs directly targeting ecosystem participants through education, outreach, incentives, or support structures with clear community benefit.
 
 Scoring Guidelines:
-1. The primary purpose should receive the highest score (0.4-0.6)
-2. Secondary aspects should receive lower scores (0.1-0.3)
-3. Minor or tangential aspects should receive minimal scores (0.0-0.1)
-4. Total of all scores must equal 1.0
-
-Important Notes:
-- Focus on the primary purpose first, then secondary aspects
-- Implementation details should not overshadow the main goal
-- Consider both immediate and long-term impacts
-- Look for clear indicators of the proposal's main objective
-- Consider the proposal's title and introduction for primary purpose clues
+- Primary category identified should receive highest score (>0.35)
+- Secondary aspects: 0.1-0.25
+- Minor aspects: 0.0-0.1
+- Total must equal 1.0
 
 Proposal to analyze:
 """
@@ -130,22 +73,22 @@ Proposal to analyze:
                 result = json.loads(response_text[json_start:json_end])
                 
                 # Extract category scores
-                category_scores = {
+                category_weights = {
                     k: v for k, v in result.items() 
                     if k not in ['sum', 'primary_category', 'summary']
                 }
                 
                 # Calculate total score
-                total_score = sum(category_scores.values())
+                total_score = sum(category_weights.values())
                 
                 # Normalize scores if total is not 1.0
                 if abs(total_score - 1.0) > 0.0001:  # Allow for small floating point differences
                     print(f"Warning: Category scores sum to {total_score:.2f}, normalizing to 1.0")
-                    for category in category_scores:
-                        category_scores[category] = category_scores[category] / total_score
+                    for category in category_weights:
+                        category_weights[category] = category_weights[category] / total_score
                     
                     # Update result with normalized scores
-                    result.update(category_scores)
+                    result.update(category_weights)
                     result['sum'] = 1.0
                 
                 return result

@@ -2,6 +2,7 @@ import anthropic
 from typing import Dict, Any
 import os
 from dotenv import load_dotenv
+import json
 
 class EvaluatorAgent:
     def __init__(self):
@@ -15,115 +16,115 @@ class EvaluatorAgent:
         # Category-specific prompts
         self.prompts = {
             "protocol_parameters": {
-                "system": """You are a protocol engineering analyst specializing in blockchain parameter optimization. Analyze this DAO governance proposal for protocol parameter changes, recognizing that proposals may not explicitly address all relevant aspects.""",
+                "system": "You are a protocol engineering analyst specializing in blockchain parameter optimization with expertise in evaluating technical and economic impacts of parameter changes.",
                 "key_points": [
-                    "Parameter Identification: Identify protocol parameters mentioned (explicit or implicit)",
-                    "Change Assessment: For identified parameters",
-                    "Parameter Relationships: Note interdependencies between parameters"
+                    "Identify exact parameters being modified with current and proposed values",
+                    "Assess direct impacts on protocol operations, incentives, and security",
+                    "Analyze parameter interdependencies and potential second-order effects"
                 ],
                 "output_instructions": [
-                    "Provide a score (0.00-1.00) reflecting how central protocol parameter changes are to this proposal",
-                    "List of parameters being modified",
-                    "Brief analysis of potential impacts",
-                    "Information gaps: What additional parameter details would strengthen this proposal?"
+                    "Provide a technical feasibility score (0.00-1.00) with explicit reasoning",
+                    "List all parameters modified with before/after values when available",
+                    "Analyze short and long-term operational impacts with specific scenarios",
+                    "Identify critical information gaps that prevent complete assessment"
                 ]
             },
             "treasury_management": {
-                "system": """You are a financial strategist specializing in DAO treasury management. Analyze this governance proposal for treasury implications, understanding that financial details may be partial or implicit.""",
+                "system": "You are a financial strategist specializing in DAO treasury management with expertise in crypto-native asset allocation and financial sustainability.",
                 "key_points": [
-                    "Resource Allocation: Quantify assets being allocated",
-                    "Financial Strategy: Purpose categorization and risk profile",
-                    "Accountability: Success metrics and reporting requirements"
+                    "Quantify precise assets allocated (amounts, percentages, timeframes)",
+                    "Evaluate alignment with treasury diversification principles",
+                    "Assess specific measurable success metrics and accountability mechanisms"
                 ],
                 "output_instructions": [
-                    "Provide a score (0.00-1.00) reflecting how central treasury management is to this proposal",
-                    "Summary of financial allocations proposed",
-                    "Risk/reward analysis based on available information",
-                    "Information gaps: What additional treasury details would strengthen this proposal?"
+                    "Provide a financial prudence score (0.00-1.00) with explicit reasoning",
+                    "Summarize exact allocations with amounts, durations, and expected returns",
+                    "Analyze specific risk/reward tradeoffs with quantitative estimates",
+                    "Identify critical information gaps that prevent complete assessment"
                 ]
             },
             "tokenomics": {
-                "system": """You are a tokenomic architect specializing in incentive design. Analyze this DAO governance proposal for tokenomic implications, recognizing that token-related specifications may be incomplete.""",
+                "system": "You are a tokenomic architect specializing in crypto-economic incentive design with expertise in supply/demand dynamics and value accrual mechanisms.",
                 "key_points": [
-                    "Token Mechanism Changes: Identify token-related mechanisms being modified",
-                    "Supply Dynamics: Note changes to emission, burning, or locking mechanisms",
-                    "Incentive Structure: Identify behavioral incentives created or modified"
+                    "Identify specific token mechanism changes with technical implementation details",
+                    "Analyze impacts on token supply, velocity, and distribution curves",
+                    "Evaluate alignment of incentive structures with protocol objectives"
                 ],
                 "output_instructions": [
-                    "Provide a score (0.00-1.00) reflecting how central tokenomics is to this proposal",
-                    "Summary of token-related changes",
-                    "Brief analysis of potential economic impacts",
-                    "Information gaps: What additional tokenomic details would strengthen this proposal?"
+                    "Provide an economic alignment score (0.00-1.00) with explicit reasoning",
+                    "Summarize token mechanism changes with quantitative projections",
+                    "Analyze market impacts across different stakeholder groups",
+                    "Identify critical information gaps that prevent complete assessment"
                 ]
             },
             "protocol_upgrades": {
-                "system": """You are a blockchain protocol architect specializing in technical implementation. Analyze this DAO governance proposal for technical upgrades, understanding that technical specifications may vary in detail.""",
+                "system": "You are a blockchain protocol architect specializing in technical implementation with expertise in smart contract security and system design.",
                 "key_points": [
-                    "Technical Changes: Identify components being modified",
-                    "Architecture Impact: Note changes to protocol architecture",
-                    "Performance Implications: Potential efficiency impacts"
+                    "Identify specific technical changes with implementation methods",
+                    "Assess architectural impacts on security, composability, and maintenance",
+                    "Evaluate performance implications with projected metrics"
                 ],
                 "output_instructions": [
-                    "Provide a score (0.00-1.00) reflecting how central protocol upgrades are to this proposal",
-                    "Summary of technical changes proposed",
-                    "Brief risk assessment",
-                    "Information gaps: What additional technical details would strengthen this proposal?"
+                    "Provide a technical robustness score (0.00-1.00) with explicit reasoning",
+                    "Summarize technical changes with specific code/architecture impacts",
+                    "Assess implementation risks with migration considerations",
+                    "Identify critical information gaps that prevent complete assessment"
                 ]
             },
             "governance_process": {
-                "system": """You are a governance architect specializing in decentralized decision-making. Analyze this DAO proposal for governance process implications, recognizing that governance details may be implicit or partial.""",
+                "system": "You are a governance architect specializing in decentralized decision-making with expertise in voting mechanisms and power distribution.",
                 "key_points": [
-                    "Governance Mechanisms: Identify governance procedures being modified",
-                    "Decision Rights: Note changes to authority distribution",
-                    "Participation Changes: Changes to participation incentives or accessibility"
+                    "Identify specific governance mechanisms being modified",
+                    "Analyze changes to authority distribution and delegation structures",
+                    "Evaluate impacts on participation rates and decision quality"
                 ],
                 "output_instructions": [
-                    "Provide a score (0.00-1.00) reflecting how central governance process changes are to this proposal",
-                    "Summary of governance mechanisms being modified",
-                    "Brief analysis of power distribution impacts",
-                    "Information gaps: What additional governance details would strengthen this proposal?"
+                    "Provide a governance effectiveness score (0.00-1.00) with explicit reasoning",
+                    "Summarize governance changes with before/after comparisons",
+                    "Analyze power distribution impacts across stakeholder groups",
+                    "Identify critical information gaps that prevent complete assessment"
                 ]
             },
             "partnerships_integrations": {
-                "system": """You are an ecosystem strategist specializing in protocol interoperability. Analyze this DAO governance proposal for partnership implications, understanding that relationship details may be incomplete.""",
+                "system": "You are an ecosystem strategist specializing in protocol interoperability with expertise in cross-chain integration and strategic alliances.",
                 "key_points": [
-                    "Relationship Identification: Identify external entities involved",
-                    "Technical Integration: API or data sharing specifications",
-                    "Strategic Alignment: Alignment with DAO's objectives"
+                    "Identify specific external entities with their relevant capabilities",
+                    "Evaluate technical integration requirements and implementation paths",
+                    "Assess strategic alignment with protocol growth objectives"
                 ],
                 "output_instructions": [
-                    "Provide a score (0.00-1.00) reflecting how central partnerships are to this proposal",
-                    "Summary of external relationships proposed",
-                    "Brief analysis of strategic implications",
-                    "Information gaps: What additional partnership details would strengthen this proposal?"
+                    "Provide a strategic value score (0.00-1.00) with explicit reasoning",
+                    "Summarize partnership terms and integration specifications",
+                    "Analyze specific value creation pathways for the protocol",
+                    "Identify critical information gaps that prevent complete assessment"
                 ]
             },
             "risk_management": {
-                "system": """You are a risk engineer specializing in blockchain security and resilience. Analyze this DAO governance proposal for risk management implications, recognizing that risk analysis may be partial.""",
+                "system": "You are a risk engineer specializing in blockchain security and resilience with expertise in threat modeling and mitigation design.",
                 "key_points": [
-                    "Risk Vectors: Identify risk categories addressed",
-                    "Mitigation Mechanisms: Technical safeguards proposed",
-                    "Resilience Improvements: Recovery capability enhancements"
+                    "Identify specific risk vectors with severity and likelihood estimates",
+                    "Evaluate proposed mitigation mechanisms with implementation details",
+                    "Assess overall resilience improvements against defined threats"
                 ],
                 "output_instructions": [
-                    "Provide a score (0.00-1.00) reflecting how central risk management is to this proposal",
-                    "Summary of risk vectors being addressed",
-                    "Brief analysis of mitigation effectiveness",
-                    "Information gaps: What additional risk management details would strengthen this proposal?"
+                    "Provide a risk reduction score (0.00-1.00) with explicit reasoning",
+                    "Summarize risk vectors with quantified impact scenarios",
+                    "Analyze mitigation effectiveness with residual risk assessment",
+                    "Identify critical information gaps that prevent complete assessment"
                 ]
             },
             "community_initiatives": {
-                "system": """You are a community architect specializing in ecosystem development. Analyze this DAO governance proposal for community implications, understanding that community initiatives may have varying levels of detail.""",
+                "system": "You are a community strategist specializing in DAO engagement and growth with expertise in incentive design and ecosystem development.",
                 "key_points": [
-                    "Initiative Identification: Identify community-focused activities",
-                    "User Journey: Onboarding/retention pathway improvements",
-                    "Resource Allocation: Resources dedicated to community building"
+                    "Identify specific engagement methods with target audiences",
+                    "Evaluate resource allocation efficiency for community development",
+                    "Assess inclusivity measures and onboarding friction reduction"
                 ],
                 "output_instructions": [
-                    "Provide a score (0.00-1.00) reflecting how central community initiatives are to this proposal",
-                    "Summary of community activities proposed",
-                    "Brief analysis of potential ecosystem impact",
-                    "Information gaps: What additional community details would strengthen this proposal?"
+                    "Provide a community impact score (0.00-1.00) with explicit reasoning",
+                    "Summarize initiative structures with participation mechanics",
+                    "Analyze engagement potential with measurable success metrics",
+                    "Identify critical information gaps that prevent complete assessment"
                 ]
             }
         }
@@ -137,28 +138,22 @@ class EvaluatorAgent:
             proposal_details: Dictionary containing proposal details
             
         Returns:
-            dict: Evaluation results including score and analysis
+            dict: Evaluation results including score, analysis, and structured findings
         """
         if category not in self.prompts:
             raise ValueError(f"Unknown category: {category}")
             
-        # Prepare the prompt
+        # Get the category-specific prompt
         prompt = self.prompts[category]
         
         # Format the proposal text
         proposal_text = f"""
 Title: {proposal_details['title']}
-Created at: {proposal_details['created_at']}
 
 Content:
-{proposal_details['content']}
-
-Key Comments:
-"""
-        for comment in proposal_details.get('comments', [])[:3]:
-            proposal_text += f"\n- {comment['content'][:500]}...\n"
+{proposal_details['content']}"""
             
-        # Create the full prompt
+        # Create the full prompt with structured output format
         full_prompt = f"""{prompt['system']}
 
 Key Analysis Points:
@@ -169,14 +164,33 @@ Output Instructions:
 
 Please analyze the following proposal:
 
-{proposal_text}"""
+{proposal_text}
+
+Provide your analysis in the following JSON format:
+{{
+    "score": <float between 0.00 and 1.00>,
+    "reasoning": "<detailed explanation of the score>",
+    "key_findings": [
+        {{
+            "aspect": "<specific aspect analyzed>",
+            "analysis": "<detailed analysis of this aspect>",
+            "impact": "<impact assessment>"
+        }}
+    ],
+    "information_gaps": [
+        "<list of critical information gaps>"
+    ],
+    "recommendations": [
+        "<list of specific recommendations>"
+    ]
+}}"""
         
         try:
             # Get Claude's analysis
             message = self.client.messages.create(
                 model="claude-3-sonnet-20240229",
                 max_tokens=1500,
-                temperature=0,
+                temperature=0.1,
                 messages=[
                     {
                         "role": "user",
@@ -188,31 +202,25 @@ Please analyze the following proposal:
             # Extract the response content
             response_text = message.content[0].text
             
-            # Parse the response to extract score and analysis
-            # This is a simple implementation - you might want to make it more robust
-            score = 0.0
-            analysis = {
-                "score": score,
-                "analysis": response_text,
-                "category": category
-            }
-            
-            # Try to extract score from response
-            import re
-            score_match = re.search(r"score\s*\(?0?\.?\d+\)?\s*:", response_text, re.IGNORECASE)
-            if score_match:
-                try:
-                    score = float(re.search(r"0?\.?\d+", score_match.group()).group())
-                    analysis["score"] = score
-                except:
-                    pass
-            
-            return analysis
+            # Find the JSON block in the response
+            json_start = response_text.find('{')
+            json_end = response_text.rfind('}') + 1
+            if json_start >= 0 and json_end > json_start:
+                result = json.loads(response_text[json_start:json_end])
+                
+                # Add category information to the result
+                result['category'] = category
+                
+                return result
+            else:
+                raise ValueError("No valid JSON found in response")
             
         except Exception as e:
             print(f"Error evaluating proposal: {str(e)}")
             return {
                 "score": 0.0,
-                "analysis": f"Error evaluating proposal: {str(e)}",
-                "category": category
+                "reasoning": f"Error evaluating proposal: {str(e)}",
+                "key_findings": [],
+                "information_gaps": [],
+                "recommendations": []
             } 

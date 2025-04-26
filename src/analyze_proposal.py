@@ -1,9 +1,9 @@
 import os
 from dotenv import load_dotenv
-from discourse_parser import DiscourseParser
-from evaluator_agents import EvaluatorAgent
-from proposal_analyzer import ProposalAnalyzer
-from sentiment_analyzer import SentimentAnalyzer
+from src.discourse_parser import DiscourseParser
+from src.evaluator_agents import EvaluatorAgent
+from src.proposal_analyzer import ProposalAnalyzer
+from src.sentiment_analyzer import SentimentAnalyzer
 import json
 from datetime import datetime
 from typing import Dict, Any, Optional
@@ -34,7 +34,7 @@ def analyze_proposal(url: str, analyze_sentiment: bool = False) -> dict:
     })
     
     # Extract category scores and get primary category
-    category_scores = {
+    category_weights = {
         k: v for k, v in analysis_results.items() 
         if k not in ['sum', 'primary_category', 'summary']
     }
@@ -60,10 +60,16 @@ def analyze_proposal(url: str, analyze_sentiment: bool = False) -> dict:
             "created_at": proposal_data['created_at']
         },
         "analysis": {
-            "category_scores": category_scores,
+            "category_weights": category_weights,
             "primary_category": primary_category,
             "summary": analysis_results.get('summary', ''),
-            "detailed_evaluation": detailed_evaluation
+            "detailed_evaluation": {
+                "score": detailed_evaluation.get('score', 0.0),
+                "reasoning": detailed_evaluation.get('reasoning', ''),
+                "key_findings": detailed_evaluation.get('key_findings', []),
+                "information_gaps": detailed_evaluation.get('information_gaps', []),
+                "recommendations": detailed_evaluation.get('recommendations', []),
+            }
         }
     }
     
@@ -103,14 +109,8 @@ def main():
             # Print summary
             print("\nAnalysis Summary:")
             print(f"Primary Category: {results['analysis']['primary_category']}")
-            print(f"Category Score: {results['analysis']['category_scores'][results['analysis']['primary_category']]}")
+            print(f"Category Weights: {results['analysis']['category_weights'][results['analysis']['primary_category']]}")
             print(f"Detailed Evaluation Score: {results['analysis']['detailed_evaluation']['score']:.2f}")
-            
-            # Compare with expected category
-            if results['analysis']['primary_category'] == proposal['expected_category']:
-                print("\n✓ Category matches expected category")
-            else:
-                print(f"\n⚠ Category mismatch: Expected {proposal['expected_category']}, got {results['analysis']['primary_category']}")
             
         except Exception as e:
             print(f"\nError analyzing proposal: {str(e)}")
